@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BPMN – Registro de Vendas e Emissão de NFC-e</title>
+<title>BPMN – Reposição de Estoque</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 :root {
@@ -11,14 +11,14 @@
   --pool-bg: #0d1120;
   --border: #1e2540;
   
-  --c-vendedor: #22c55e;
-  --c-sistema:  #a78bfa;
-  --c-sefaz:    #eab308;
-  --c-error:    #ef4444;
+  --c-sistema:    #a78bfa; /* Roxo */
+  --c-comprador:  #0ea5e9; /* Azul */
+  --c-fornecedor: #f97316; /* Laranja */
+  --c-error:      #ef4444; /* Vermelho */
   
-  --lane-v-bg:  rgba(34,197,94,0.04);
   --lane-s-bg:  rgba(167,139,250,0.04);
-  --lane-z-bg:  rgba(234,179,8,0.04);
+  --lane-c-bg:  rgba(14,165,233,0.04);
+  --lane-f-bg:  rgba(249,115,22,0.04);
   
   --node-bg:    #111827;
   --node-border:#2a3352;
@@ -66,7 +66,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   position:absolute;
   border:1.5px solid var(--border);border-radius:16px;
   overflow:visible;
-  min-width:1150px;
+  min-width:1350px; /* Aumentado para caber o fluxo maior */
 }
 
 /* lane */
@@ -85,14 +85,14 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 }
 .lane-body{flex:1;position:relative;min-height:160px}
 
-#lane-vendedor .lane-label-col{color:var(--c-vendedor);background:rgba(34,197,94,.07)}
-#lane-vendedor .lane-body{background:var(--lane-v-bg)}
-
 #lane-sistema .lane-label-col{color:var(--c-sistema);background:rgba(167,139,250,.07)}
 #lane-sistema .lane-body{background:var(--lane-s-bg)}
 
-#lane-sefaz .lane-label-col{color:var(--c-sefaz);background:rgba(234,179,8,.07)}
-#lane-sefaz .lane-body{background:var(--lane-z-bg)}
+#lane-comprador .lane-label-col{color:var(--c-comprador);background:rgba(14,165,233,.07)}
+#lane-comprador .lane-body{background:var(--lane-c-bg)}
+
+#lane-fornecedor .lane-label-col{color:var(--c-fornecedor);background:rgba(249,115,22,.07)}
+#lane-fornecedor .lane-body{background:var(--lane-f-bg)}
 
 /* ── SVG edges layer ── */
 #edges-svg{position:absolute;top:0;left:0;pointer-events:none;overflow:visible;z-index:2}
@@ -119,11 +119,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   font-family:'JetBrains Mono',monospace;font-size:.55rem;font-weight:600;
   letter-spacing:.06em;text-transform:uppercase;
 }
-.node-circle.start .node-inner{border-color:var(--c-vendedor);color:var(--c-vendedor);box-shadow:0 0 16px rgba(34,197,94,.25)}
+.node-circle.start .node-inner{border-color:var(--c-sistema);color:var(--c-sistema);box-shadow:0 0 16px rgba(167,139,250,.25)}
 .node-circle.end   .node-inner{
-  border-color:var(--c-vendedor);color:var(--c-vendedor);
-  box-shadow:0 0 16px rgba(34,197,94,.25);
-  outline:3px solid var(--c-vendedor);outline-offset:3px;
+  border-color:var(--c-fornecedor);color:var(--c-fornecedor);
+  box-shadow:0 0 16px rgba(249,115,22,.25);
+  outline:3px solid var(--c-fornecedor);outline-offset:3px;
 }
 
 /* rect */
@@ -133,9 +133,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   font-size:.68rem;line-height:1.45;font-weight:500;
   box-shadow:0 4px 14px rgba(0,0,0,.4);
 }
-#lane-vendedor .node-rect .node-inner{border-color:rgba(34,197,94,.35)}
-#lane-sistema  .node-rect .node-inner{border-color:rgba(167,139,250,.35)}
-#lane-sefaz    .node-rect .node-inner{border-color:rgba(234,179,8,.35)}
+#lane-sistema    .node-rect .node-inner{border-color:rgba(167,139,250,.35)}
+#lane-comprador  .node-rect .node-inner{border-color:rgba(14,165,233,.35)}
+#lane-fornecedor .node-rect .node-inner{border-color:rgba(249,115,22,.35)}
 
 /* error / exception rect */
 .node.error-node .node-inner{
@@ -153,17 +153,17 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   position:absolute;inset:0;border:2px solid;
   transform:rotate(45deg);border-radius:4px;background:var(--node-bg);
 }
-#lane-vendedor .node-diamond .diamond-shape{border-color:rgba(34,197,94,.5); background:rgba(34,197,94,.06)}
-#lane-sistema  .node-diamond .diamond-shape{border-color:rgba(167,139,250,.5);background:rgba(167,139,250,.06)}
-#lane-sefaz    .node-diamond .diamond-shape{border-color:rgba(234,179,8,.5);background:rgba(234,179,8,.06)}
+#lane-sistema    .node-diamond .diamond-shape{border-color:rgba(167,139,250,.5);background:rgba(167,139,250,.06)}
+#lane-comprador  .node-diamond .diamond-shape{border-color:rgba(14,165,233,.5); background:rgba(14,165,233,.06)}
+#lane-fornecedor .node-diamond .diamond-shape{border-color:rgba(249,115,22,.5); background:rgba(249,115,22,.06)}
 
 .node-diamond .diamond-text{
   position:relative;z-index:1;font-size:.6rem;font-weight:600;
   line-height:1.3;max-width:68px;font-family:'JetBrains Mono',monospace;
 }
-#lane-vendedor .node-diamond .diamond-text{color:var(--c-vendedor)}
-#lane-sistema  .node-diamond .diamond-text{color:var(--c-sistema)}
-#lane-sefaz    .node-diamond .diamond-text{color:var(--c-sefaz)}
+#lane-sistema    .node-diamond .diamond-text{color:var(--c-sistema)}
+#lane-comprador  .node-diamond .diamond-text{color:var(--c-comprador)}
+#lane-fornecedor .node-diamond .diamond-text{color:var(--c-fornecedor)}
 
 /* tooltip */
 #tip{
@@ -174,7 +174,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 }
 #tip.show{opacity:1}
 
-/* responsive hint */
+/* hint */
 #hint{
   position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
   background:rgba(8,11,18,.9);border:1px solid var(--border);
@@ -262,18 +262,18 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 <body>
 
 <div id="toolbar">
-  <a href="index.html" class="tb-btn" style="text-decoration: none; color: var(--c-blue); border-color: rgba(14,165,233,0.3);">
+  <a href="index.html" class="tb-btn" style="text-decoration: none; color: var(--c-sistema); border-color: rgba(167,139,250,0.3);">
      ← Voltar
   </a>
   <div class="tb-sep"></div>
   
   <h1>BPMN</h1>
-  <span>Registro de Vendas e Emissão de NFC-e</span>
+  <span>Cotação e Reposição de Estoque</span>
   <div class="tb-sep"></div>
   <div class="legend">
-    <div class="leg"><div class="leg-dot" style="background:var(--c-vendedor)"></div>Vendedor</div>
     <div class="leg"><div class="leg-dot" style="background:var(--c-sistema)"></div>Sistema</div>
-    <div class="leg"><div class="leg-dot" style="background:var(--c-sefaz)"></div>SEFAZ</div>
+    <div class="leg"><div class="leg-dot" style="background:var(--c-comprador)"></div>Comprador</div>
+    <div class="leg"><div class="leg-dot" style="background:var(--c-fornecedor)"></div>Fornecedor</div>
   </div>
   <div class="tb-sep"></div>
   <button class="tb-btn" id="btn-fit" title="Ajustar à tela">⊡ Fit</button>
@@ -291,59 +291,56 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   <div id="canvas">
     <div id="pool">
 
-      <div class="lane" id="lane-vendedor">
-        <div class="lane-label-col">Vendedor</div>
-        <div class="lane-body" id="body-vendedor">
-          <div class="node node-circle start" id="n-A" data-tip="A venda foi aprovada pelo cliente. O processo se inicia no checkout.">
-            <div class="node-inner">Início</div>
-          </div>
-          <div class="node node-rect" id="n-B" data-tip="Vendedor seleciona a forma de pagamento (Pix, Cartão, Dinheiro) e finaliza a operação.">
-            <div class="node-inner">Confirmar pagamento</div>
-          </div>
-          <div class="node node-rect error-node" id="n-I" data-tip="Vendedor corrige os dados cadastrais da peça ou aciona modo contingência offline.">
-            <div class="node-inner">Corrigir dados ou Contingência</div>
-          </div>
-          <div class="node node-rect" id="n-K" data-tip="Vendedor imprime o cupom (DANFE) e entrega a mercadoria ao cliente.">
-            <div class="node-inner">Imprimir DANFE e entregar</div>
-          </div>
-          <div class="node node-circle end" id="n-L" data-tip="Processo de venda finalizado com sucesso.">
-            <div class="node-inner">Fim</div>
-          </div>
-        </div>
-      </div>
-
       <div class="lane" id="lane-sistema">
         <div class="lane-label-col">Sistema Cloud</div>
         <div class="lane-body" id="body-sistema">
-          <div class="node node-rect" id="n-C" data-tip="O sistema recebe os dados e registra o pagamento no banco de dados.">
-            <div class="node-inner">Registrar venda no BD</div>
+          <div class="node node-circle start" id="n-A" data-tip="Sistema detecta automaticamente que um produto atingiu o nível de estoque mínimo de segurança.">
+            <div class="node-inner">Início</div>
           </div>
-          <div class="node node-rect" id="n-D" data-tip="O sistema abate as peças vendidas do inventário físico.">
-            <div class="node-inner">Abater peças do estoque</div>
+          <div class="node node-rect" id="n-B" data-tip="Sistema gera alerta no dashboard e prepara lista de sugestão de compras.">
+            <div class="node-inner">Gerar Alerta de Reposição</div>
           </div>
-          <div class="node node-rect" id="n-E" data-tip="O backend monta e assina o arquivo XML da NFC-e com certificado digital.">
-            <div class="node-inner">Gerar e assinar XML NFC-e</div>
-          </div>
-          <div class="node node-rect" id="n-F" data-tip="O sistema envia o XML para os servidores da SEFAZ via API.">
-            <div class="node-inner">Transmitir XML via API</div>
-          </div>
-          <div class="node node-rect error-node" id="n-H" data-tip="O sistema alerta o vendedor sobre a rejeição (ex: NCM inválido).">
-            <div class="node-inner">Exibir Erro de Rejeição</div>
-          </div>
-          <div class="node node-rect" id="n-J" data-tip="Com a nota autorizada, o sistema gera o Documento Auxiliar com QR Code.">
-            <div class="node-inner">Gerar DANFE com QR Code</div>
+          <div class="node node-rect" id="n-I" data-tip="Sistema vincula pedido de compra ao financeiro (Contas a Pagar aguardando NF).">
+            <div class="node-inner">Registrar Pedido de Compra</div>
           </div>
         </div>
       </div>
 
-      <div class="lane" id="lane-sefaz">
-        <div class="lane-label-col">SEFAZ</div>
-        <div class="lane-body" id="body-sefaz">
-          <div class="node node-diamond" id="n-G" data-tip="SEFAZ valida as regras fiscais do XML enviado.">
+      <div class="lane" id="lane-comprador">
+        <div class="lane-label-col">Comprador</div>
+        <div class="lane-body" id="body-comprador">
+          <div class="node node-rect" id="n-C" data-tip="O comprador analisa o alerta e dispara e-mails de cotação para distribuidores homologados.">
+            <div class="node-inner">Solicitar Cotação (E-mail/API)</div>
+          </div>
+          <div class="node node-rect" id="n-E" data-tip="Comprador reúne os retornos e compara quem oferece o menor custo e melhor prazo.">
+            <div class="node-inner">Comparar Propostas</div>
+          </div>
+          <div class="node node-diamond" id="n-F" data-tip="As condições (Preço, Prazo, Frete) estão dentro da margem aceitável pela loja?">
             <div class="node-inner">
               <div class="diamond-shape"></div>
-              <div class="diamond-text">Autoriza NFC-e?</div>
+              <div class="diamond-text">Proposta Aprovada?</div>
             </div>
+          </div>
+          <div class="node node-rect error-node" id="n-G" data-tip="Nenhuma proposta atendeu. Comprador negocia novos valores ou busca outros fornecedores.">
+            <div class="node-inner">Renegociar Valores</div>
+          </div>
+          <div class="node node-rect" id="n-H" data-tip="Comprador aprova a melhor cotação e oficializa a intenção de compra.">
+            <div class="node-inner">Aprovar e Emitir Ordem</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lane" id="lane-fornecedor">
+        <div class="lane-label-col">Fornecedor</div>
+        <div class="lane-body" id="body-fornecedor">
+          <div class="node node-rect" id="n-D" data-tip="Fornecedor recebe solicitação e envia tabela de preços e previsão de entrega.">
+            <div class="node-inner">Retornar Preço e Prazo</div>
+          </div>
+          <div class="node node-rect" id="n-J" data-tip="Fornecedor recebe Ordem de Compra oficial, fatura os itens e despacha o caminhão.">
+            <div class="node-inner">Faturar e Despachar</div>
+          </div>
+          <div class="node node-circle end" id="n-K" data-tip="Processo de compra concluído. Aguardando chegada física (gatilho para Recebimento).">
+            <div class="node-inner">Fim</div>
           </div>
         </div>
       </div>
@@ -360,7 +357,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
         <span class="close-modal" title="Fechar">&times;</span>
         <h3>Sugestão de Organização</h3>
         <p>Você pode arrastar os elementos e organizá-los de forma semelhante a este exemplo.</p>
-        <img src="assets/02-Venda-Emissão.PNG" alt="Layout Recomendado">
+        <img src="assets/06-reposicao-estoque.PNG" alt="Layout Recomendado">
     </div>
 </div>
 
@@ -368,44 +365,45 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 // ════════════════════════════════════════════════════════════
 //  CONFIG
 // ════════════════════════════════════════════════════════════
-const LANE_H = 180; // px each lane
+const LANE_H = 180;
 
-// Initial node positions: {id: {lane, x, y}} — x/y relative to lane body
+// Posições Iniciais
 const DEFAULT_POS = {
-  'n-A': {lane:'body-vendedor', x:50,  y:65},
-  'n-B': {lane:'body-vendedor', x:180, y:65},
-  'n-I': {lane:'body-vendedor', x:510, y:20},
-  'n-K': {lane:'body-vendedor', x:850, y:65},
-  'n-L': {lane:'body-vendedor', x:1020,y:65},
+  // Sistema Cloud
+  'n-A': {lane:'body-sistema', x:50,  y:65},
+  'n-B': {lane:'body-sistema', x:180, y:65},
+  'n-I': {lane:'body-sistema', x:880, y:65},
 
-  'n-C': {lane:'body-sistema',  x:180, y:65},
-  'n-D': {lane:'body-sistema',  x:340, y:65},
-  'n-E': {lane:'body-sistema',  x:510, y:65},
-  'n-F': {lane:'body-sistema',  x:680, y:65},
-  'n-H': {lane:'body-sistema',  x:680, y:125},
-  'n-J': {lane:'body-sistema',  x:850, y:65},
+  // Comprador
+  'n-C': {lane:'body-comprador', x:180, y:65},
+  'n-E': {lane:'body-comprador', x:540, y:65},
+  'n-F': {lane:'body-comprador', x:720, y:45},
+  'n-G': {lane:'body-comprador', x:720, y:135},
+  'n-H': {lane:'body-comprador', x:880, y:20},
 
-  'n-G': {lane:'body-sefaz',    x:680, y:45},
+  // Fornecedor
+  'n-D': {lane:'body-fornecedor', x:360, y:65},
+  'n-J': {lane:'body-fornecedor', x:1060, y:65},
+  'n-K': {lane:'body-fornecedor', x:1230, y:65},
 };
 
-// Edge definitions
+// Conexões
 const EDGES_DEF = [
-  {id:'e-AB', from:'n-A', to:'n-B', color:'#22c55e', label:''},
-  {id:'e-BC', from:'n-B', to:'n-C', color:'#64748b', label:'', cross:true},
-  {id:'e-CD', from:'n-C', to:'n-D', color:'#a78bfa', label:''},
-  {id:'e-DE', from:'n-D', to:'n-E', color:'#a78bfa', label:''},
-  {id:'e-EF', from:'n-E', to:'n-F', color:'#a78bfa', label:''},
+  {id:'e-AB', from:'n-A', to:'n-B', color:'#a78bfa', label:''},
+  {id:'e-BC', from:'n-B', to:'n-C', color:'#a78bfa', label:'', cross:true},
+  {id:'e-CD', from:'n-C', to:'n-D', color:'#0ea5e9', label:'', cross:true},
+  {id:'e-DE', from:'n-D', to:'n-E', color:'#f97316', label:'', cross:true},
+  {id:'e-EF', from:'n-E', to:'n-F', color:'#0ea5e9', label:''},
   
-  {id:'e-FG', from:'n-F', to:'n-G', color:'#64748b', label:'', cross:true},
+  // Caminho Negado (Loop)
+  {id:'e-FG', from:'n-F', to:'n-G', color:'#ef4444', label:'Não'},
+  {id:'e-GC', from:'n-G', to:'n-C', color:'#ef4444', label:'Refazer'},
   
-  {id:'e-GH', from:'n-G', to:'n-H', color:'#ef4444', label:'Não', cross:true},
-  {id:'e-HI', from:'n-H', to:'n-I', color:'#ef4444', label:'', cross:true},
-  {id:'e-IE', from:'n-I', to:'n-E', color:'#ef4444', label:'', cross:true},
-  
-  {id:'e-GJ', from:'n-G', to:'n-J', color:'#64748b', label:'Sim', cross:true},
-  
-  {id:'e-JK', from:'n-J', to:'n-K', color:'#64748b', label:'', cross:true},
-  {id:'e-KL', from:'n-K', to:'n-L', color:'#22c55e', label:''},
+  // Caminho Aprovado
+  {id:'e-FH', from:'n-F', to:'n-H', color:'#0ea5e9', label:'Sim'},
+  {id:'e-HI', from:'n-H', to:'n-I', color:'#0ea5e9', label:'', cross:true},
+  {id:'e-IJ', from:'n-I', to:'n-J', color:'#a78bfa', label:'', cross:true},
+  {id:'e-JK', from:'n-J', to:'n-K', color:'#f97316', label:''},
 ];
 
 // ════════════════════════════════════════════════════════════
@@ -413,7 +411,6 @@ const EDGES_DEF = [
 // ════════════════════════════════════════════════════════════
 let panX=60, panY=20, scale=1;
 let showHandles=true;
-// edge control points (offset from midpoint): {edgeId: {dx,dy}}
 let cpOffsets={};
 
 // ════════════════════════════════════════════════════════════
@@ -431,10 +428,10 @@ function applyTransform(){
 }
 
 function layoutPool(){
-  const lanes=['body-vendedor','body-sistema','body-sefaz'];
+  const lanes=['body-sistema','body-comprador','body-fornecedor'];
   lanes.forEach(id=>{
     const el=document.getElementById(id);
-    el.style.height=LANE_H+'px';
+    if(el) el.style.height=LANE_H+'px';
   });
   let maxRight=0;
   Object.entries(DEFAULT_POS).forEach(([id,p])=>{
@@ -443,7 +440,7 @@ function layoutPool(){
     const right=p.x+n.offsetWidth+40;
     if(right>maxRight) maxRight=right;
   });
-  pool.style.width=Math.max(maxRight+60,1150)+'px';
+  pool.style.width=Math.max(maxRight+60,1350)+'px';
 }
 
 function placeNodes(){
@@ -500,7 +497,7 @@ function drawEdges(){
   edgesSvg.innerHTML='';
 
   const defs=document.createElementNS('http://www.w3.org/2000/svg','defs');
-  const colors=['#22c55e','#a78bfa','#eab308','#64748b','#ef4444'];
+  const colors=['#0ea5e9','#a78bfa','#f97316','#ef4444'];
   colors.forEach(c=>{
     const m=document.createElementNS('http://www.w3.org/2000/svg','marker');
     const safe=c.replace('#','');
@@ -581,7 +578,7 @@ function drawEdges(){
 }
 
 // ════════════════════════════════════════════════════════════
-//  DRAG: NODES
+//  DRAG & DROP
 // ════════════════════════════════════════════════════════════
 let dragNode=null, dragOffX=0, dragOffY=0;
 
@@ -610,16 +607,10 @@ document.addEventListener('mousemove',e=>{
   drawEdges();
 });
 
-document.addEventListener('mouseup',()=>{
-  if (dragNode) {
-    dragNode = null;
-    saveLayout(); 
-  }
+document.addEventListener('mouseup',()=>{ 
+  if (dragNode) { dragNode = null; saveLayout(); }
 });
 
-// ════════════════════════════════════════════════════════════
-//  DRAG: CONTROL POINTS
-// ════════════════════════════════════════════════════════════
 let dragCP=null, dragCPEdge=null, dragCPStartX=0, dragCPStartY=0, dragCPOff={dx:0,dy:0};
 
 edgesSvg.addEventListener('mousedown',e=>{
@@ -640,15 +631,12 @@ document.addEventListener('mousemove',e=>{
   drawEdges();
 });
 
-document.addEventListener('mouseup',()=>{
-  if (dragCPEdge) {
-    dragCPEdge = null;
-    saveLayout();
-  }
+document.addEventListener('mouseup',()=>{ 
+  if (dragCPEdge) { dragCPEdge = null; saveLayout(); }
 });
 
 // ════════════════════════════════════════════════════════════
-//  PAN & ZOOM (Com Scroll corrigido para ZOOM apenas)
+//  PAN & ZOOM (Com Scroll Corrigido)
 // ════════════════════════════════════════════════════════════
 let panning=false, panStartX=0, panStartY=0, panStartPX=0, panStartPY=0;
 
@@ -759,7 +747,7 @@ document.getElementById('btn-fit').addEventListener('click',fitToScreen);
 
 document.getElementById('btn-reset').addEventListener('click',()=>{
   if(confirm("Deseja restaurar as posições originais? Todo o seu ajuste será perdido.")) {
-    localStorage.removeItem('bpmn_vendas_layout');
+    localStorage.removeItem('bpmn_reposicao_estoque_layout');
     location.reload();
   }
 });
@@ -770,7 +758,7 @@ document.getElementById('btn-curves').addEventListener('click',function(){
   drawEdges();
 });
 
-// -- Lógica do Modal --
+// Lógica do Modal
 const modal = document.getElementById('preview-modal');
 const btnPreview = document.getElementById('btn-preview');
 const closeModal = document.querySelector('.close-modal');
@@ -802,7 +790,7 @@ function fitToScreen(){
 }
 
 // ════════════════════════════════════════════════════════════
-//  TOOLTIP
+//  TOOLTIP & RESIZE
 // ════════════════════════════════════════════════════════════
 document.querySelectorAll('[data-tip]').forEach(el=>{
   el.addEventListener('mousemove',e=>{
@@ -814,9 +802,6 @@ document.querySelectorAll('[data-tip]').forEach(el=>{
   el.addEventListener('mouseleave',()=>tip.classList.remove('show'));
 });
 
-// ════════════════════════════════════════════════════════════
-//  RESPONSIVE RESIZE
-// ════════════════════════════════════════════════════════════
 const ro=new ResizeObserver(()=>{ drawEdges(); applyTransform(); });
 ro.observe(viewport);
 
@@ -831,11 +816,12 @@ function saveLayout() {
       y: parseFloat(node.style.top) || 0
     };
   });
-  localStorage.setItem('bpmn_vendas_layout', JSON.stringify(layoutData));
+  // Chave ÚNICA
+  localStorage.setItem('bpmn_reposicao_estoque_layout', JSON.stringify(layoutData));
 }
 
 function loadLayout() {
-  const saved = localStorage.getItem('bpmn_vendas_layout');
+  const saved = localStorage.getItem('bpmn_reposicao_estoque_layout');
   if (saved) {
     try {
       const parsed = JSON.parse(saved);

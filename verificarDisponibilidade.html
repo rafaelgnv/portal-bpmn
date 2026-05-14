@@ -159,14 +159,6 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 }
 #tip.show{opacity:1}
 
-/* minimap */
-#minimap{
-  position:fixed;bottom:20px;right:20px;width:160px;height:90px;
-  background:rgba(8,11,18,.85);border:1px solid var(--border);
-  border-radius:8px;overflow:hidden;z-index:900;
-}
-#minimap canvas{width:100%;height:100%}
-
 /* responsive hint */
 #hint{
   position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
@@ -174,6 +166,81 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   border-radius:20px;padding:6px 16px;
   font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);
   pointer-events:none;opacity:1;transition:opacity .5s;z-index:900;
+}
+
+/* ── MODAL (LIGHTBOX) DE REFERÊNCIA ── */
+.modal {
+    display: none; 
+    position: fixed;
+    z-index: 3000; 
+    inset: 0;
+    background: rgba(8, 11, 18, 0.85); 
+    backdrop-filter: blur(8px);
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.modal.show {
+    display: flex;
+    opacity: 1;
+}
+
+.modal-content {
+    background: rgba(17, 24, 39, 0.9);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+    max-width: 90%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    transform: translateY(20px);
+    transition: transform 0.3s ease;
+}
+
+.modal.show .modal-content {
+    transform: translateY(0);
+}
+
+.modal-content h3 {
+    font-size: 1.1rem;
+    color: var(--text);
+    margin-bottom: 8px;
+}
+
+.modal-content p {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-bottom: 20px;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.modal-content img {
+    max-width: 100%;
+    max-height: 65vh; 
+    object-fit: contain;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.1);
+}
+
+.close-modal {
+    position: absolute;
+    top: 16px;
+    right: 20px;
+    color: var(--muted);
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.close-modal:hover {
+    color: #ef4444; 
 }
 </style>
 </head>
@@ -196,6 +263,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
   <div class="tb-sep"></div>
   <button class="tb-btn" id="btn-fit" title="Ajustar à tela">⊡ Fit</button>
   <button class="tb-btn" id="btn-reset" title="Resetar posições">↺ Reset</button>
+  <button class="tb-btn" id="btn-preview" title="Ver sugestão de organização">🖼️ Referência</button>
   <button class="tb-btn active" id="btn-curves" title="Mostrar/ocultar handles de curva">⌒ Curvas</button>
   <div class="tb-zoom">
     <button class="tb-btn" id="btn-zm">−</button>
@@ -287,6 +355,15 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-famil
 <div id="tip"></div>
 <div id="hint">🖱 Arraste nós · ⌒ Segure handle amarelo para curvar setas · Scroll para zoom</div>
 
+<div id="preview-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-modal" title="Fechar">&times;</span>
+        <h3>Sugestão de Organização</h3>
+        <p>Você pode arrastar os elementos e organizá-los de forma semelhante a este exemplo.</p>
+        <img src="assets/01-Verificador.PNG" alt="Layout Recomendado">
+    </div>
+</div>
+
 <script>
 // ════════════════════════════════════════════════════════════
 //  CONFIG
@@ -355,14 +432,12 @@ function applyTransform(){
   document.getElementById('zoom-val').textContent=Math.round(scale*100)+'%';
 }
 
-// Size pool and lanes
 function layoutPool(){
   const lanes=['body-cliente','body-vendedor','body-sistema'];
   lanes.forEach(id=>{
     const el=document.getElementById(id);
     el.style.height=LANE_H+'px';
   });
-  // pool width = max right edge of any node
   let maxRight=0;
   Object.entries(DEFAULT_POS).forEach(([id,p])=>{
     const n=document.getElementById(id);
@@ -373,7 +448,6 @@ function layoutPool(){
   pool.style.width=Math.max(maxRight+60,1050)+'px';
 }
 
-// Place nodes
 function placeNodes(){
   Object.entries(DEFAULT_POS).forEach(([id,p])=>{
     const node=document.getElementById(id);
@@ -413,7 +487,6 @@ function getNodeEdge(id, toId){
   const ty=(tr.top +tr.bottom)/2/scale - pr.top/scale;
   const cx=nx+nw/2, cy=ny+nh/2;
   const dx=tx-cx, dy=ty-cy;
-  // pick exit side
   if(Math.abs(dx)>Math.abs(dy)){
     return dx>0 ? {x:nx+nw,y:cy} : {x:nx,y:cy};
   } else {
@@ -422,14 +495,12 @@ function getNodeEdge(id, toId){
 }
 
 function drawEdges(){
-  // size svg
   const pr=pool.getBoundingClientRect();
   edgesSvg.style.width =pr.width /scale+'px';
   edgesSvg.style.height=pr.height/scale+'px';
   edgesSvg.setAttribute('viewBox',`0 0 ${pr.width/scale} ${pr.height/scale}`);
   edgesSvg.innerHTML='';
 
-  // defs
   const defs=document.createElementNS('http://www.w3.org/2000/svg','defs');
   const colors=['#0ea5e9','#22c55e','#a78bfa','#64748b'];
   colors.forEach(c=>{
@@ -457,7 +528,6 @@ function drawEdges(){
     const d=`M${p1.x},${p1.y} Q${cp.x},${cp.y} ${p2.x},${p2.y}`;
     const safe=edge.color.replace('#','');
 
-    // glow for cross-lane
     if(edge.cross){
       const glow=document.createElementNS('http://www.w3.org/2000/svg','path');
       glow.setAttribute('d',d);
@@ -478,10 +548,8 @@ function drawEdges(){
     path.dataset.edgeId=edge.id;
     edgesSvg.appendChild(path);
 
-    // label
     if(edge.label){
       const t=document.createElementNS('http://www.w3.org/2000/svg','text');
-      // position at 60% along curve
       const tx=p1.x*.16+cp.x*.68+p2.x*.16;
       const ty=p1.y*.16+cp.y*.68+p2.y*.16;
       t.setAttribute('x',tx);t.setAttribute('y',ty-6);
@@ -491,7 +559,6 @@ function drawEdges(){
       edgesSvg.appendChild(t);
     }
 
-    // control point handle
     if(showHandles){
       const g=document.createElementNS('http://www.w3.org/2000/svg','g');
       g.setAttribute('class','cp-handle');
@@ -545,12 +612,8 @@ document.addEventListener('mousemove',e=>{
   drawEdges();
 });
 
-// Atualizado: Salva ao soltar o Nó
 document.addEventListener('mouseup',()=>{ 
-  if (dragNode) {
-    dragNode = null;
-    saveLayout();
-  }
+  if (dragNode) { dragNode = null; saveLayout(); }
 });
 
 // ════════════════════════════════════════════════════════════
@@ -576,16 +639,12 @@ document.addEventListener('mousemove',e=>{
   drawEdges();
 });
 
-// Atualizado: Salva ao soltar o Ponto de Controle (Seta)
 document.addEventListener('mouseup',()=>{ 
-  if (dragCPEdge) {
-    dragCPEdge = null;
-    saveLayout();
-  }
+  if (dragCPEdge) { dragCPEdge = null; saveLayout(); }
 });
 
 // ════════════════════════════════════════════════════════════
-//  PAN & ZOOM
+//  PAN & ZOOM (Com Scroll corrigido para ZOOM apenas)
 // ════════════════════════════════════════════════════════════
 let panning=false, panStartX=0, panStartY=0, panStartPX=0, panStartPY=0;
 
@@ -603,22 +662,15 @@ document.addEventListener('mousemove',e=>{
 });
 document.addEventListener('mouseup',()=>{ panning=false;viewport.classList.remove('panning'); });
 
-// Atualizado: Novo comportamento do Scroll e Zoom (CTRL + Scroll)
 viewport.addEventListener('wheel', e => {
   e.preventDefault();
-  if (e.ctrlKey || e.metaKey) {
-    const delta = -e.deltaY * 0.001;
-    const newScale = Math.min(Math.max(scale + delta * scale, .25), 2.5);
-    const rect = viewport.getBoundingClientRect();
-    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-    
-    panX = mx - (mx - panX) * (newScale / scale);
-    panY = my - (my - panY) * (newScale / scale);
-    scale = newScale;
-  } else {
-    panX -= e.deltaX;
-    panY -= e.deltaY;
-  }
+  const delta = -e.deltaY * 0.001;
+  const newScale = Math.min(Math.max(scale + delta * scale, .25), 2.5);
+  const rect = viewport.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  panX = mx - (mx - panX) * (newScale / scale);
+  panY = my - (my - panY) * (newScale / scale);
+  scale = newScale;
   applyTransform();
 }, { passive: false });
 
@@ -627,7 +679,6 @@ let touches={}, lastDist=0, lastTouchPX=0, lastTouchPY=0;
 viewport.addEventListener('touchstart',e=>{
   if(e.touches.length===1){
     const t=e.touches[0];
-    // check if touching a node
     const el=document.elementFromPoint(t.clientX,t.clientY);
     if(el&&el.closest('.node')){
       const node=el.closest('.node');
@@ -686,17 +737,13 @@ viewport.addEventListener('touchmove',e=>{
   e.preventDefault();
 },{passive:false});
 
-// Atualizado: Salva ao soltar no Mobile (Touch)
 viewport.addEventListener('touchend',()=>{ 
-  if (dragNode || dragCPEdge) {
-    saveLayout();
-  }
-  panning=false;
-  dragNode=null; 
+  if (dragNode || dragCPEdge) { saveLayout(); }
+  panning=false; dragNode=null; 
 },{passive:true});
 
 // ════════════════════════════════════════════════════════════
-//  TOOLBAR BUTTONS
+//  TOOLBAR BUTTONS E MODAL DE REFERÊNCIA
 // ════════════════════════════════════════════════════════════
 document.getElementById('btn-zp').addEventListener('click',()=>{
   scale=Math.min(scale*1.2,2.5);applyTransform();
@@ -706,7 +753,6 @@ document.getElementById('btn-zm').addEventListener('click',()=>{
 });
 document.getElementById('btn-fit').addEventListener('click',fitToScreen);
 
-// Atualizado: Botão de Reset apaga a memória
 document.getElementById('btn-reset').addEventListener('click',()=>{
   if(confirm("Deseja restaurar as posições originais? Todo o seu ajuste será perdido.")) {
     localStorage.removeItem('bpmn_verificar_peca_layout');
@@ -717,6 +763,26 @@ document.getElementById('btn-curves').addEventListener('click',function(){
   showHandles=!showHandles;
   this.classList.toggle('active',showHandles);
   drawEdges();
+});
+
+// -- Lógica do Modal --
+const modal = document.getElementById('preview-modal');
+const btnPreview = document.getElementById('btn-preview');
+const closeModal = document.querySelector('.close-modal');
+
+btnPreview.addEventListener('click', () => {
+    modal.style.display = 'flex';
+    setTimeout(() => modal.classList.add('show'), 10); 
+});
+
+function hideModal() {
+    modal.classList.remove('show');
+    setTimeout(() => modal.style.display = 'none', 300);
+}
+
+closeModal.addEventListener('click', hideModal);
+modal.addEventListener('click', (e) => {
+    if (e.target === modal) hideModal();
 });
 
 function fitToScreen(){
@@ -753,20 +819,13 @@ ro.observe(viewport);
 //  AUTO-SAVE (LOCALSTORAGE)
 // ════════════════════════════════════════════════════════════
 function saveLayout() {
-  const layoutData = {
-    nodes: {},
-    cp: cpOffsets // Salva também as curvas das setas
-  };
-
-  // Captura a posição atual de todos os nós na tela
+  const layoutData = { nodes: {}, cp: cpOffsets };
   document.querySelectorAll('.node').forEach(node => {
     layoutData.nodes[node.id] = {
       x: parseFloat(node.style.left) || 0,
       y: parseFloat(node.style.top) || 0
     };
   });
-
-  // Grava no navegador com a chave exclusiva desta página
   localStorage.setItem('bpmn_verificar_peca_layout', JSON.stringify(layoutData));
 }
 
@@ -775,8 +834,6 @@ function loadLayout() {
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
-      
-      // Sobrescreve as posições iniciais
       if (parsed.nodes) {
         for (const [id, pos] of Object.entries(parsed.nodes)) {
           if (DEFAULT_POS[id]) {
@@ -785,14 +842,8 @@ function loadLayout() {
           }
         }
       }
-      
-      // Restaura as modificações feitas nas setas
-      if (parsed.cp) {
-        cpOffsets = parsed.cp;
-      }
-    } catch (e) {
-      console.error("Erro ao ler o layout salvo:", e);
-    }
+      if (parsed.cp) cpOffsets = parsed.cp;
+    } catch (e) { console.error("Erro ao ler o layout salvo:", e); }
   }
 }
 
@@ -801,13 +852,11 @@ function loadLayout() {
 // ════════════════════════════════════════════════════════════
 function boot(){
   layoutPool();
-  loadLayout(); // <-- Atualizado: Carrega o layout antes de renderizar
+  loadLayout();
   placeNodes();
-  // wait one frame for layout
   requestAnimationFrame(()=>{
     drawEdges();
     fitToScreen();
-    // hide hint
     setTimeout(()=>{
       const h=document.getElementById('hint');
       h.style.opacity='0';
