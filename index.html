@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal BPMN - Processos Internos</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #080b12;
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --border: rgba(255, 255, 255, 0.1);
+            --card-bg: rgba(255, 255, 255, 0.03);
+            --c-blue: #0ea5e9;
+            --c-green: #22c55e;
+            --c-purple: #a78bfa;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Syne', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* --- Fundo com Imagem Desfocada --- */
+        body::before {
+            content: '';
+            position: fixed;
+            /* Margens negativas evitam bordas brancas causadas pelo blur */
+            top: -20px; left: -20px; right: -20px; bottom: -20px;
+            background-image: url('assets/bg-net-digital.jpg');
+            background-size: cover;
+            background-position: center;
+            filter: blur(8px) brightness(0.35); /* Desfoca e escurece a imagem */
+            z-index: -2;
+        }
+
+        /* --- Padrão de Grade (Grid Tech) Opcional por cima da imagem --- */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px);
+            background-size: 30px 30px;
+            z-index: -1;
+        }
+
+        /* --- Tela de Carregamento (Loader) --- */
+        #loader {
+            position: fixed;
+            inset: 0;
+            background-color: var(--bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.8s ease;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255,255,255,0.1);
+            border-top-color: var(--c-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* --- Container Principal (A "Caixa" Glassmorphism) --- */
+        #app {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 1s cubic-bezier(0.25, 1, 0.5, 1);
+            
+            /* Dimensões e Crescimento */
+            width: 90%;
+            max-width: 950px;
+            margin: 40px auto; /* Permite rolar a página se o conteúdo crescer muito */
+            padding: 60px 50px;
+            
+            /* Efeito Glassmorphism */
+            background: rgba(17, 24, 39, 0.45);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            
+            /* Bordas e Sombras Elegantes */
+            border: 1px solid var(--border);
+            border-top: 1px solid rgba(255, 255, 255, 0.2); /* Borda superior levemente mais clara para dar reflexo */
+            border-radius: 24px;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+            
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        #app.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* --- Tipografia --- */
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            letter-spacing: -0.02em;
+            background: linear-gradient(to right, #ffffff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        p.subtitle {
+            color: var(--muted);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            margin-bottom: 50px;
+            max-width: 650px;
+            margin-inline: auto;
+        }
+
+        /* --- Grid de Cartões (Links para os Diagramas) --- */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            width: 100%;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 30px;
+            text-decoration: none;
+            color: var(--text);
+            text-align: left;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 3px;
+            background: var(--border);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.06);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.3);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .card:hover::before {
+            background: var(--hover-color);
+            box-shadow: 0 0 15px var(--hover-color);
+        }
+
+        .card h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .card p {
+            font-size: 0.85rem;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .tag {
+            align-self: flex-start;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.65rem;
+            padding: 5px 12px;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.05);
+            color: var(--hover-color);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        /* Responsividade para telas menores */
+        @media (max-width: 600px) {
+            #app {
+                padding: 40px 20px;
+                width: 95%;
+            }
+            h1 { font-size: 2rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="loader">
+        <div class="spinner"></div>
+    </div>
+
+    <div id="app">
+        <h1>Mapeamento de Processos</h1>
+        <p class="subtitle">
+            Plataforma de visualização interativa dos fluxos de negócio da Auto Peças. 
+            Selecione um dos processos abaixo para analisar as raias, atores e gargalos do sistema.
+        </p>
+
+        <div class="card-grid">
+            <a href="verificarDisponibilidade.html" class="card" style="--hover-color: var(--c-blue);">
+                <span class="tag">Fluxo Operacional</span>
+                <h2>Verificar Compatibilidade</h2>
+                <p>Mapeamento da jornada do cliente no balcão e cruzamento de dados com o estoque físico e sistema cloud.</p>
+            </a>
+
+            <a href="vendasEnfc.html" class="card" style="--hover-color: var(--c-green);">
+                <span class="tag">Fluxo Fiscal / PDV</span>
+                <h2>Registro de Venda e NFC-e</h2>
+                <p>Processo de checkout, integração com banco de dados, geração de XML e transmissão de notas com a SEFAZ.</p>
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // Script para simular o carregamento e disparar as animações
+        window.addEventListener('load', () => {
+            const loader = document.getElementById('loader');
+            const app = document.getElementById('app');
+
+            // Simula um breve tempo de carregamento para efeito visual
+            setTimeout(() => {
+                loader.style.opacity = '0';
+                setTimeout(() => {
+                    loader.style.display = 'none';
+                    // Dispara a animação de entrada do conteúdo
+                    app.classList.add('visible');
+                }, 800);
+            }, 600); 
+        });
+    </script>
+</body>
+</html>

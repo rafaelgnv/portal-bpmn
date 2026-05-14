@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BPMN – Verificar Compatibilidade da Peça</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #080b12;
+  --pool-bg: #0d1120;
+  --border: #1e2540;
+  --c-cliente:  #0ea5e9;
+  --c-vendedor: #22c55e;
+  --c-sistema:  #a78bfa;
+  --lane-c-bg:  rgba(14,165,233,0.04);
+  --lane-v-bg:  rgba(34,197,94,0.04);
+  --lane-s-bg:  rgba(167,139,250,0.04);
+  --node-bg:    #111827;
+  --node-border:#2a3352;
+  --text:       #e2e8f0;
+  --muted:      #64748b;
+  --handle:     #f59e0b;
+  --selected:   #f59e0b;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);font-family:'Syne',sans-serif;color:var(--text)}
+
+/* ── toolbar ── */
+#toolbar{
+  position:fixed;top:0;left:0;right:0;height:52px;
+  background:rgba(8,11,18,0.92);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 20px;gap:12px;z-index:1000;
+}
+#toolbar h1{font-size:.85rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--text);margin-right:8px}
+#toolbar span{font-size:.65rem;font-family:'JetBrains Mono',monospace;color:var(--muted);letter-spacing:.08em}
+.tb-sep{width:1px;height:28px;background:var(--border);margin:0 4px}
+.tb-btn{
+  display:flex;align-items:center;gap:6px;padding:5px 12px;border-radius:6px;
+  border:1px solid var(--border);background:transparent;color:var(--muted);
+  font-family:'JetBrains Mono',monospace;font-size:.68rem;cursor:pointer;
+  transition:all .15s;user-select:none;
+}
+.tb-btn:hover{background:rgba(255,255,255,.06);color:var(--text);border-color:#3a4568}
+.tb-btn.active{background:rgba(245,158,11,.12);color:var(--handle);border-color:rgba(245,158,11,.4)}
+.tb-zoom{display:flex;align-items:center;gap:4px;margin-left:auto}
+#zoom-val{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--muted);min-width:40px;text-align:center}
+
+/* legend */
+.legend{display:flex;gap:16px;align-items:center;margin-left:8px}
+.leg{display:flex;align-items:center;gap:5px;font-size:.6rem;font-family:'JetBrains Mono',monospace;color:var(--muted)}
+.leg-dot{width:8px;height:8px;border-radius:50%}
+
+/* ── canvas wrapper ── */
+#viewport{position:fixed;top:52px;left:0;right:0;bottom:0;overflow:hidden;cursor:grab}
+#viewport.panning{cursor:grabbing}
+#canvas{position:absolute;transform-origin:0 0}
+
+/* ── pool ── */
+#pool{
+  position:absolute;
+  border:1.5px solid var(--border);border-radius:16px;
+  overflow:visible;
+  min-width:1100px;
+}
+
+/* lane */
+.lane{
+  display:flex;position:relative;
+  border-bottom:1px solid var(--border);
+}
+.lane:last-child{border-bottom:none}
+.lane-label-col{
+  writing-mode:vertical-rl;transform:rotate(180deg);
+  width:36px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'JetBrains Mono',monospace;font-size:.6rem;font-weight:600;
+  letter-spacing:.2em;text-transform:uppercase;
+  border-right:1px solid var(--border);
+}
+.lane-body{flex:1;position:relative;min-height:160px}
+#lane-cliente .lane-label-col{color:var(--c-cliente);background:rgba(14,165,233,.07)}
+#lane-cliente .lane-body{background:var(--lane-c-bg)}
+#lane-vendedor .lane-label-col{color:var(--c-vendedor);background:rgba(34,197,94,.07)}
+#lane-vendedor .lane-body{background:var(--lane-v-bg)}
+#lane-sistema .lane-label-col{color:var(--c-sistema);background:rgba(167,139,250,.07)}
+#lane-sistema .lane-body{background:var(--lane-s-bg)}
+
+/* ── SVG edges layer ── */
+#edges-svg{position:absolute;top:0;left:0;pointer-events:none;overflow:visible;z-index:2}
+.edge-path{fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;cursor:pointer;pointer-events:stroke}
+.edge-path:hover{stroke-width:3}
+.edge-label{font-family:'JetBrains Mono',monospace;font-size:10px;fill:var(--muted);pointer-events:none;user-select:none}
+.cp-handle{cursor:move;pointer-events:all}
+
+/* ── nodes ── */
+.node{
+  position:absolute;z-index:10;
+  display:flex;align-items:center;justify-content:center;text-align:center;
+  cursor:move;user-select:none;
+  transition:filter .15s;
+}
+.node:hover{filter:brightness(1.3)}
+.node.selected .node-inner{outline:2px solid var(--selected);outline-offset:3px}
+
+/* circle */
+.node-circle .node-inner{
+  width:52px;height:52px;border-radius:50%;
+  border:2.5px solid;background:var(--node-bg);
+  display:flex;align-items:center;justify-content:center;
+  font-family:'JetBrains Mono',monospace;font-size:.55rem;font-weight:600;
+  letter-spacing:.06em;text-transform:uppercase;
+}
+.node-circle.start .node-inner{border-color:var(--c-cliente);color:var(--c-cliente);box-shadow:0 0 16px rgba(14,165,233,.25)}
+.node-circle.end   .node-inner{
+  border-color:var(--c-vendedor);color:var(--c-vendedor);
+  box-shadow:0 0 16px rgba(34,197,94,.25);
+  outline:3px solid var(--c-vendedor);outline-offset:3px;
+}
+
+/* rect */
+.node-rect .node-inner{
+  min-width:110px;max-width:140px;padding:10px 13px;
+  border-radius:8px;border:1.5px solid var(--node-border);background:var(--node-bg);
+  font-size:.68rem;line-height:1.45;font-weight:500;
+  box-shadow:0 4px 14px rgba(0,0,0,.4);
+}
+#lane-cliente  .node-rect .node-inner{border-color:rgba(14,165,233,.35)}
+#lane-vendedor .node-rect .node-inner{border-color:rgba(34,197,94,.35)}
+#lane-sistema  .node-rect .node-inner{border-color:rgba(167,139,250,.35)}
+
+/* diamond */
+.node-diamond .node-inner{
+  width:80px;height:80px;position:relative;
+  display:flex;align-items:center;justify-content:center;
+}
+.node-diamond .diamond-shape{
+  position:absolute;inset:0;border:2px solid;
+  transform:rotate(45deg);border-radius:4px;background:var(--node-bg);
+}
+#lane-cliente  .node-diamond .diamond-shape{border-color:rgba(14,165,233,.5);background:rgba(14,165,233,.06)}
+#lane-vendedor .node-diamond .diamond-shape{border-color:rgba(34,197,94,.5); background:rgba(34,197,94,.06)}
+#lane-sistema  .node-diamond .diamond-shape{border-color:rgba(167,139,250,.5);background:rgba(167,139,250,.06)}
+.node-diamond .diamond-text{
+  position:relative;z-index:1;font-size:.6rem;font-weight:600;
+  line-height:1.3;max-width:68px;font-family:'JetBrains Mono',monospace;
+}
+#lane-cliente  .node-diamond .diamond-text{color:var(--c-cliente)}
+#lane-vendedor .node-diamond .diamond-text{color:var(--c-vendedor)}
+#lane-sistema  .node-diamond .diamond-text{color:var(--c-sistema)}
+
+/* tooltip */
+#tip{
+  position:fixed;pointer-events:none;opacity:0;transition:opacity .15s;
+  background:#1a2035;border:1px solid var(--border);border-radius:8px;
+  padding:8px 12px;font-size:.7rem;line-height:1.5;max-width:220px;
+  color:var(--text);box-shadow:0 8px 24px rgba(0,0,0,.5);z-index:2000;
+}
+#tip.show{opacity:1}
+
+/* minimap */
+#minimap{
+  position:fixed;bottom:20px;right:20px;width:160px;height:90px;
+  background:rgba(8,11,18,.85);border:1px solid var(--border);
+  border-radius:8px;overflow:hidden;z-index:900;
+}
+#minimap canvas{width:100%;height:100%}
+
+/* responsive hint */
+#hint{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+  background:rgba(8,11,18,.9);border:1px solid var(--border);
+  border-radius:20px;padding:6px 16px;
+  font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--muted);
+  pointer-events:none;opacity:1;transition:opacity .5s;z-index:900;
+}
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <a href="index.html" class="tb-btn" style="text-decoration: none; color: var(--c-blue); border-color: rgba(14,165,233,0.3);">
+     ← Voltar
+  </a>
+  <div class="tb-sep"></div>
+  
+  <h1>BPMN</h1>
+  <span>Verificar Compatibilidade da Peça</span>
+  <div class="tb-sep"></div>
+  <div class="legend">
+    <div class="leg"><div class="leg-dot" style="background:var(--c-cliente)"></div>Cliente</div>
+    <div class="leg"><div class="leg-dot" style="background:var(--c-vendedor)"></div>Vendedor</div>
+    <div class="leg"><div class="leg-dot" style="background:var(--c-sistema)"></div>Sistema</div>
+  </div>
+  <div class="tb-sep"></div>
+  <button class="tb-btn" id="btn-fit" title="Ajustar à tela">⊡ Fit</button>
+  <button class="tb-btn" id="btn-reset" title="Resetar posições">↺ Reset</button>
+  <button class="tb-btn active" id="btn-curves" title="Mostrar/ocultar handles de curva">⌒ Curvas</button>
+  <div class="tb-zoom">
+    <button class="tb-btn" id="btn-zm">−</button>
+    <span id="zoom-val">100%</span>
+    <button class="tb-btn" id="btn-zp">+</button>
+  </div>
+</div>
+
+<div id="viewport">
+  <div id="canvas">
+    <div id="pool">
+
+      <div class="lane" id="lane-cliente">
+        <div class="lane-label-col">Cliente</div>
+        <div class="lane-body" id="body-cliente">
+          <div class="node node-circle start" id="n-A" data-tip="Início do processo de verificação.">
+            <div class="node-inner">Início</div>
+          </div>
+          <div class="node node-rect" id="n-B" data-tip="Cliente solicita a peça ao vendedor presencialmente ou por canal de atendimento.">
+            <div class="node-inner">Solicitar peça ao Vendedor</div>
+          </div>
+          <div class="node node-diamond" id="n-L" data-tip="Cliente decide se aprova ou recusa a compra com base nas informações recebidas.">
+            <div class="node-inner">
+              <div class="diamond-shape"></div>
+              <div class="diamond-text">Aprovar a compra?</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lane" id="lane-vendedor">
+        <div class="lane-label-col">Vendedor</div>
+        <div class="lane-body" id="body-vendedor">
+          <div class="node node-rect" id="n-C" data-tip="Vendedor insere os dados da peça na busca rápida do sistema.">
+            <div class="node-inner">Inserir dados na busca rápida</div>
+          </div>
+          <div class="node node-rect" id="n-G" data-tip="Vendedor comunica ao cliente a disponibilidade (original, similar ou em falta).">
+            <div class="node-inner">Informar Cliente sobre disponibilidade</div>
+          </div>
+          <div class="node node-rect" id="n-M" data-tip="Vendedor adiciona a peça ao PDV ou carrinho para finalizar a venda.">
+            <div class="node-inner">Adicionar ao PDV / Carrinho</div>
+          </div>
+          <div class="node node-rect" id="n-N" data-tip="Vendedor agradece e encerra sem venda.">
+            <div class="node-inner">Agradecer e Encerrar sem venda</div>
+          </div>
+          <div class="node node-circle end" id="n-O" data-tip="Fim do processo de atendimento.">
+            <div class="node-inner">Fim</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lane" id="lane-sistema">
+        <div class="lane-label-col">Sistema Cloud</div>
+        <div class="lane-body" id="body-sistema">
+          <div class="node node-rect" id="n-D" data-tip="Sistema executa busca cruzada no estoque local e na rede de fornecedores.">
+            <div class="node-inner">Realizar busca cruzada</div>
+          </div>
+          <div class="node node-diamond" id="n-E" data-tip="Sistema verifica se a peça exata está disponível em estoque.">
+            <div class="node-inner">
+              <div class="diamond-shape"></div>
+              <div class="diamond-text">Peça exata em estoque?</div>
+            </div>
+          </div>
+          <div class="node node-rect" id="n-F" data-tip="Sistema retorna ao vendedor todos os dados da peça original encontrada.">
+            <div class="node-inner">Retornar dados originais</div>
+          </div>
+          <div class="node node-rect" id="n-H" data-tip="Sistema inicia busca por peças similares compatíveis.">
+            <div class="node-inner">Buscar peças similares</div>
+          </div>
+          <div class="node node-diamond" id="n-I" data-tip="Sistema verifica se existe alguma peça similar disponível.">
+            <div class="node-inner">
+              <div class="diamond-shape"></div>
+              <div class="diamond-text">Existe similar em estoque?</div>
+            </div>
+          </div>
+          <div class="node node-rect" id="n-J" data-tip="Sistema retorna os dados da peça similar disponível.">
+            <div class="node-inner">Retornar dados da peça similar</div>
+          </div>
+          <div class="node node-rect" id="n-K" data-tip="Sistema emite alerta indicando que o produto está em falta.">
+            <div class="node-inner">Emitir alerta: Produto em Falta</div>
+          </div>
+        </div>
+      </div>
+
+    </div><svg id="edges-svg"></svg>
+  </div>
+</div>
+
+<div id="tip"></div>
+<div id="hint">🖱 Arraste nós · ⌒ Segure handle amarelo para curvar setas · Scroll para zoom</div>
+
+<script>
+// ════════════════════════════════════════════════════════════
+//  CONFIG
+// ════════════════════════════════════════════════════════════
+const LANE_H = 180; // px each lane
+
+// Initial node positions: {id: {lane, x, y}} — x/y relative to lane body
+const DEFAULT_POS = {
+  'n-A': {lane:'body-cliente',  x:50,  y:65},
+  'n-B': {lane:'body-cliente',  x:180, y:65},
+  'n-L': {lane:'body-cliente',  x:560, y:45},
+  'n-C': {lane:'body-vendedor', x:180, y:65},
+  'n-G': {lane:'body-vendedor', x:380, y:65},
+  'n-M': {lane:'body-vendedor', x:580, y:25},
+  'n-N': {lane:'body-vendedor', x:580, y:105},
+  'n-O': {lane:'body-vendedor', x:760, y:65},
+  'n-D': {lane:'body-sistema',  x:180, y:65},
+  'n-E': {lane:'body-sistema',  x:360, y:45},
+  'n-F': {lane:'body-sistema',  x:530, y:20},
+  'n-H': {lane:'body-sistema',  x:530, y:100},
+  'n-I': {lane:'body-sistema',  x:700, y:45},
+  'n-J': {lane:'body-sistema',  x:870, y:20},
+  'n-K': {lane:'body-sistema',  x:870, y:100},
+};
+
+// Edge definitions
+const EDGES_DEF = [
+  {id:'e-AB',  from:'n-A', to:'n-B',  color:'#0ea5e9', label:''},
+  {id:'e-BC',  from:'n-B', to:'n-C',  color:'#64748b', label:'',  cross:true},
+  {id:'e-CD',  from:'n-C', to:'n-D',  color:'#64748b', label:'',  cross:true},
+  {id:'e-DE',  from:'n-D', to:'n-E',  color:'#a78bfa', label:''},
+  {id:'e-EF',  from:'n-E', to:'n-F',  color:'#a78bfa', label:'Sim'},
+  {id:'e-EH',  from:'n-E', to:'n-H',  color:'#a78bfa', label:'Não'},
+  {id:'e-HI',  from:'n-H', to:'n-I',  color:'#a78bfa', label:''},
+  {id:'e-IJ',  from:'n-I', to:'n-J',  color:'#a78bfa', label:'Sim'},
+  {id:'e-IK',  from:'n-I', to:'n-K',  color:'#a78bfa', label:'Não'},
+  {id:'e-FG',  from:'n-F', to:'n-G',  color:'#64748b', label:'',  cross:true},
+  {id:'e-JG',  from:'n-J', to:'n-G',  color:'#64748b', label:'',  cross:true},
+  {id:'e-KG',  from:'n-K', to:'n-G',  color:'#64748b', label:'',  cross:true},
+  {id:'e-GL',  from:'n-G', to:'n-L',  color:'#64748b', label:'',  cross:true},
+  {id:'e-LM',  from:'n-L', to:'n-M',  color:'#0ea5e9', label:'Sim', cross:true},
+  {id:'e-LN',  from:'n-L', to:'n-N',  color:'#0ea5e9', label:'Não', cross:true},
+  {id:'e-MO',  from:'n-M', to:'n-O',  color:'#22c55e', label:''},
+  {id:'e-NO',  from:'n-N', to:'n-O',  color:'#22c55e', label:''},
+];
+
+// ════════════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════════════
+let panX=60, panY=20, scale=1;
+let showHandles=true;
+// edge control points (offset from midpoint): {edgeId: {dx,dy}}
+let cpOffsets={};
+
+// ════════════════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════════════════
+const canvas   = document.getElementById('canvas');
+const pool     = document.getElementById('pool');
+const edgesSvg = document.getElementById('edges-svg');
+const viewport = document.getElementById('viewport');
+const tip      = document.getElementById('tip');
+
+function applyTransform(){
+  canvas.style.transform=`translate(${panX}px,${panY}px) scale(${scale})`;
+  document.getElementById('zoom-val').textContent=Math.round(scale*100)+'%';
+}
+
+// Size pool and lanes
+function layoutPool(){
+  const lanes=['body-cliente','body-vendedor','body-sistema'];
+  lanes.forEach(id=>{
+    const el=document.getElementById(id);
+    el.style.height=LANE_H+'px';
+  });
+  // pool width = max right edge of any node
+  let maxRight=0;
+  Object.entries(DEFAULT_POS).forEach(([id,p])=>{
+    const n=document.getElementById(id);
+    if(!n)return;
+    const right=p.x+n.offsetWidth+40;
+    if(right>maxRight) maxRight=right;
+  });
+  pool.style.width=Math.max(maxRight+60,1050)+'px';
+}
+
+// Place nodes
+function placeNodes(){
+  Object.entries(DEFAULT_POS).forEach(([id,p])=>{
+    const node=document.getElementById(id);
+    const body=document.getElementById(p.lane);
+    if(!node||!body) return;
+    body.appendChild(node);
+    node.style.left=p.x+'px';
+    node.style.top =p.y+'px';
+    node.style.transform='none';
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  EDGES DRAWING
+// ════════════════════════════════════════════════════════════
+function getNodeCenter(id){
+  const n=document.getElementById(id);
+  if(!n) return {x:0,y:0};
+  const nr=n.getBoundingClientRect();
+  const pr=pool.getBoundingClientRect();
+  return {
+    x:(nr.left-pr.left)/scale + nr.width/(2*scale),
+    y:(nr.top -pr.top )/scale + nr.height/(2*scale)
+  };
+}
+
+function getNodeEdge(id, toId){
+  const n=document.getElementById(id);
+  const to=document.getElementById(toId);
+  if(!n||!to) return getNodeCenter(id);
+  const nr=n.getBoundingClientRect();
+  const tr=to.getBoundingClientRect();
+  const pr=pool.getBoundingClientRect();
+  const nx=(nr.left-pr.left)/scale, ny=(nr.top-pr.top)/scale;
+  const nw=nr.width/scale, nh=nr.height/scale;
+  const tx=(tr.left+tr.right)/2/scale - pr.left/scale;
+  const ty=(tr.top +tr.bottom)/2/scale - pr.top/scale;
+  const cx=nx+nw/2, cy=ny+nh/2;
+  const dx=tx-cx, dy=ty-cy;
+  // pick exit side
+  if(Math.abs(dx)>Math.abs(dy)){
+    return dx>0 ? {x:nx+nw,y:cy} : {x:nx,y:cy};
+  } else {
+    return dy>0 ? {x:cx,y:ny+nh} : {x:cx,y:ny};
+  }
+}
+
+function drawEdges(){
+  // size svg
+  const pr=pool.getBoundingClientRect();
+  edgesSvg.style.width =pr.width /scale+'px';
+  edgesSvg.style.height=pr.height/scale+'px';
+  edgesSvg.setAttribute('viewBox',`0 0 ${pr.width/scale} ${pr.height/scale}`);
+  edgesSvg.innerHTML='';
+
+  // defs
+  const defs=document.createElementNS('http://www.w3.org/2000/svg','defs');
+  const colors=['#0ea5e9','#22c55e','#a78bfa','#64748b'];
+  colors.forEach(c=>{
+    const m=document.createElementNS('http://www.w3.org/2000/svg','marker');
+    const safe=c.replace('#','');
+    m.setAttribute('id','arr-'+safe);
+    m.setAttribute('markerWidth','8');m.setAttribute('markerHeight','8');
+    m.setAttribute('refX','6');m.setAttribute('refY','3');
+    m.setAttribute('orient','auto');
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d','M0,0 L0,6 L8,3 z');
+    path.setAttribute('fill',c);
+    m.appendChild(path);
+    defs.appendChild(m);
+  });
+  edgesSvg.appendChild(defs);
+
+  EDGES_DEF.forEach(edge=>{
+    const p1=getNodeEdge(edge.from, edge.to);
+    const p2=getNodeEdge(edge.to,   edge.from);
+    const mid={x:(p1.x+p2.x)/2, y:(p1.y+p2.y)/2};
+    const off=cpOffsets[edge.id]||{dx:0,dy:0};
+    const cp={x:mid.x+off.dx, y:mid.y+off.dy};
+
+    const d=`M${p1.x},${p1.y} Q${cp.x},${cp.y} ${p2.x},${p2.y}`;
+    const safe=edge.color.replace('#','');
+
+    // glow for cross-lane
+    if(edge.cross){
+      const glow=document.createElementNS('http://www.w3.org/2000/svg','path');
+      glow.setAttribute('d',d);
+      glow.setAttribute('fill','none');
+      glow.setAttribute('stroke',edge.color);
+      glow.setAttribute('stroke-width','5');
+      glow.setAttribute('stroke-opacity','.08');
+      glow.setAttribute('stroke-linecap','round');
+      edgesSvg.appendChild(glow);
+    }
+
+    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d',d);
+    path.setAttribute('class','edge-path');
+    path.setAttribute('stroke',edge.color);
+    path.setAttribute('stroke-dasharray', edge.cross?'6 3':'none');
+    path.setAttribute('marker-end',`url(#arr-${safe})`);
+    path.dataset.edgeId=edge.id;
+    edgesSvg.appendChild(path);
+
+    // label
+    if(edge.label){
+      const t=document.createElementNS('http://www.w3.org/2000/svg','text');
+      // position at 60% along curve
+      const tx=p1.x*.16+cp.x*.68+p2.x*.16;
+      const ty=p1.y*.16+cp.y*.68+p2.y*.16;
+      t.setAttribute('x',tx);t.setAttribute('y',ty-6);
+      t.setAttribute('class','edge-label');t.setAttribute('text-anchor','middle');
+      t.setAttribute('fill',edge.color);
+      t.textContent=edge.label;
+      edgesSvg.appendChild(t);
+    }
+
+    // control point handle
+    if(showHandles){
+      const g=document.createElementNS('http://www.w3.org/2000/svg','g');
+      g.setAttribute('class','cp-handle');
+      g.dataset.edgeId=edge.id;
+      g.dataset.midX=mid.x;g.dataset.midY=mid.y;
+
+      const line1=document.createElementNS('http://www.w3.org/2000/svg','line');
+      line1.setAttribute('x1',mid.x);line1.setAttribute('y1',mid.y);
+      line1.setAttribute('x2',cp.x);line1.setAttribute('y2',cp.y);
+      line1.setAttribute('stroke','#f59e0b');line1.setAttribute('stroke-width','1');
+      line1.setAttribute('stroke-opacity','.4');line1.setAttribute('stroke-dasharray','3 2');
+      g.appendChild(line1);
+
+      const circ=document.createElementNS('http://www.w3.org/2000/svg','circle');
+      circ.setAttribute('cx',cp.x);circ.setAttribute('cy',cp.y);circ.setAttribute('r','6');
+      circ.setAttribute('fill','#f59e0b');circ.setAttribute('stroke','#0d1120');
+      circ.setAttribute('stroke-width','2');circ.setAttribute('fill-opacity','.85');
+      g.appendChild(circ);
+      edgesSvg.appendChild(g);
+    }
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  DRAG: NODES
+// ════════════════════════════════════════════════════════════
+let dragNode=null, dragOffX=0, dragOffY=0;
+
+document.addEventListener('mousedown',e=>{
+  const node=e.target.closest('.node');
+  if(!node) return;
+  e.preventDefault();
+  dragNode=node;
+  const nr=node.getBoundingClientRect();
+  dragOffX=(e.clientX-nr.left)/scale;
+  dragOffY=(e.clientY-nr.top)/scale;
+  node.classList.add('selected');
+  document.querySelectorAll('.node').forEach(n=>{ if(n!==node) n.classList.remove('selected'); });
+});
+
+document.addEventListener('mousemove',e=>{
+  if(!dragNode) return;
+  const body=dragNode.parentElement;
+  const br=body.getBoundingClientRect();
+  let nx=(e.clientX-br.left)/scale - dragOffX;
+  let ny=(e.clientY-br.top )/scale - dragOffY;
+  nx=Math.max(0, Math.min(nx, body.offsetWidth - dragNode.offsetWidth));
+  ny=Math.max(0, Math.min(ny, body.offsetHeight- dragNode.offsetHeight));
+  dragNode.style.left=nx+'px';
+  dragNode.style.top =ny+'px';
+  drawEdges();
+});
+
+// Atualizado: Salva ao soltar o Nó
+document.addEventListener('mouseup',()=>{ 
+  if (dragNode) {
+    dragNode = null;
+    saveLayout();
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+//  DRAG: CONTROL POINTS
+// ════════════════════════════════════════════════════════════
+let dragCP=null, dragCPEdge=null, dragCPStartX=0, dragCPStartY=0, dragCPOff={dx:0,dy:0};
+
+edgesSvg.addEventListener('mousedown',e=>{
+  const g=e.target.closest('.cp-handle');
+  if(!g) return;
+  e.preventDefault();e.stopPropagation();
+  dragCPEdge=g.dataset.edgeId;
+  dragCPStartX=e.clientX;
+  dragCPStartY=e.clientY;
+  dragCPOff={...(cpOffsets[dragCPEdge]||{dx:0,dy:0})};
+});
+
+document.addEventListener('mousemove',e=>{
+  if(!dragCPEdge) return;
+  const dx=(e.clientX-dragCPStartX)/scale;
+  const dy=(e.clientY-dragCPStartY)/scale;
+  cpOffsets[dragCPEdge]={dx:dragCPOff.dx+dx, dy:dragCPOff.dy+dy};
+  drawEdges();
+});
+
+// Atualizado: Salva ao soltar o Ponto de Controle (Seta)
+document.addEventListener('mouseup',()=>{ 
+  if (dragCPEdge) {
+    dragCPEdge = null;
+    saveLayout();
+  }
+});
+
+// ════════════════════════════════════════════════════════════
+//  PAN & ZOOM
+// ════════════════════════════════════════════════════════════
+let panning=false, panStartX=0, panStartY=0, panStartPX=0, panStartPY=0;
+
+viewport.addEventListener('mousedown',e=>{
+  if(e.target.closest('.node')||e.target.closest('.cp-handle')) return;
+  panning=true;viewport.classList.add('panning');
+  panStartX=e.clientX;panStartY=e.clientY;
+  panStartPX=panX;panStartPY=panY;
+});
+document.addEventListener('mousemove',e=>{
+  if(!panning) return;
+  panX=panStartPX+(e.clientX-panStartX);
+  panY=panStartPY+(e.clientY-panStartY);
+  applyTransform();
+});
+document.addEventListener('mouseup',()=>{ panning=false;viewport.classList.remove('panning'); });
+
+// Atualizado: Novo comportamento do Scroll e Zoom (CTRL + Scroll)
+viewport.addEventListener('wheel', e => {
+  e.preventDefault();
+  if (e.ctrlKey || e.metaKey) {
+    const delta = -e.deltaY * 0.001;
+    const newScale = Math.min(Math.max(scale + delta * scale, .25), 2.5);
+    const rect = viewport.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    
+    panX = mx - (mx - panX) * (newScale / scale);
+    panY = my - (my - panY) * (newScale / scale);
+    scale = newScale;
+  } else {
+    panX -= e.deltaX;
+    panY -= e.deltaY;
+  }
+  applyTransform();
+}, { passive: false });
+
+// ── Touch support ──
+let touches={}, lastDist=0, lastTouchPX=0, lastTouchPY=0;
+viewport.addEventListener('touchstart',e=>{
+  if(e.touches.length===1){
+    const t=e.touches[0];
+    // check if touching a node
+    const el=document.elementFromPoint(t.clientX,t.clientY);
+    if(el&&el.closest('.node')){
+      const node=el.closest('.node');
+      dragNode=node;
+      const nr=node.getBoundingClientRect();
+      dragOffX=(t.clientX-nr.left)/scale;
+      dragOffY=(t.clientY-nr.top)/scale;
+      return;
+    }
+    panning=true;
+    panStartX=t.clientX;panStartY=t.clientY;
+    panStartPX=panX;panStartPY=panY;
+  }
+  if(e.touches.length===2){
+    const dx=e.touches[0].clientX-e.touches[1].clientX;
+    const dy=e.touches[0].clientY-e.touches[1].clientY;
+    lastDist=Math.hypot(dx,dy);
+    panning=false;
+  }
+},{passive:true});
+
+viewport.addEventListener('touchmove',e=>{
+  if(e.touches.length===1){
+    const t=e.touches[0];
+    if(dragNode){
+      const body=dragNode.parentElement;
+      const br=body.getBoundingClientRect();
+      let nx=(t.clientX-br.left)/scale-dragOffX;
+      let ny=(t.clientY-br.top )/scale-dragOffY;
+      nx=Math.max(0,Math.min(nx,body.offsetWidth-dragNode.offsetWidth));
+      ny=Math.max(0,Math.min(ny,body.offsetHeight-dragNode.offsetHeight));
+      dragNode.style.left=nx+'px';dragNode.style.top=ny+'px';
+      drawEdges();return;
+    }
+    if(panning){
+      panX=panStartPX+(t.clientX-panStartX);
+      panY=panStartPY+(t.clientY-panStartY);
+      applyTransform();
+    }
+  }
+  if(e.touches.length===2){
+    const dx=e.touches[0].clientX-e.touches[1].clientX;
+    const dy=e.touches[0].clientY-e.touches[1].clientY;
+    const dist=Math.hypot(dx,dy);
+    const ratio=dist/lastDist;
+    const newScale=Math.min(Math.max(scale*ratio,.25),2.5);
+    const cx=(e.touches[0].clientX+e.touches[1].clientX)/2;
+    const cy=(e.touches[0].clientY+e.touches[1].clientY)/2;
+    const vr=viewport.getBoundingClientRect();
+    const mx=cx-vr.left,my=cy-vr.top;
+    panX=mx-(mx-panX)*(newScale/scale);
+    panY=my-(my-panY)*(newScale/scale);
+    scale=newScale;lastDist=dist;
+    applyTransform();
+  }
+  e.preventDefault();
+},{passive:false});
+
+// Atualizado: Salva ao soltar no Mobile (Touch)
+viewport.addEventListener('touchend',()=>{ 
+  if (dragNode || dragCPEdge) {
+    saveLayout();
+  }
+  panning=false;
+  dragNode=null; 
+},{passive:true});
+
+// ════════════════════════════════════════════════════════════
+//  TOOLBAR BUTTONS
+// ════════════════════════════════════════════════════════════
+document.getElementById('btn-zp').addEventListener('click',()=>{
+  scale=Math.min(scale*1.2,2.5);applyTransform();
+});
+document.getElementById('btn-zm').addEventListener('click',()=>{
+  scale=Math.max(scale/1.2,.25);applyTransform();
+});
+document.getElementById('btn-fit').addEventListener('click',fitToScreen);
+
+// Atualizado: Botão de Reset apaga a memória
+document.getElementById('btn-reset').addEventListener('click',()=>{
+  if(confirm("Deseja restaurar as posições originais? Todo o seu ajuste será perdido.")) {
+    localStorage.removeItem('bpmn_verificar_peca_layout');
+    location.reload();
+  }
+});
+document.getElementById('btn-curves').addEventListener('click',function(){
+  showHandles=!showHandles;
+  this.classList.toggle('active',showHandles);
+  drawEdges();
+});
+
+function fitToScreen(){
+  const vr=viewport.getBoundingClientRect();
+  const pr=pool.getBoundingClientRect();
+  const pw=pr.width/scale, ph=pr.height/scale;
+  const sw=vr.width-80, sh=vr.height-60;
+  scale=Math.min(sw/pw, sh/ph, 1);
+  panX=(vr.width-pw*scale)/2;
+  panY=(vr.height-ph*scale)/2;
+  applyTransform();
+}
+
+// ════════════════════════════════════════════════════════════
+//  TOOLTIP
+// ════════════════════════════════════════════════════════════
+document.querySelectorAll('[data-tip]').forEach(el=>{
+  el.addEventListener('mousemove',e=>{
+    tip.textContent=el.dataset.tip;
+    tip.classList.add('show');
+    tip.style.left=(e.clientX+14)+'px';
+    tip.style.top=(e.clientY-8)+'px';
+  });
+  el.addEventListener('mouseleave',()=>tip.classList.remove('show'));
+});
+
+// ════════════════════════════════════════════════════════════
+//  RESPONSIVE RESIZE
+// ════════════════════════════════════════════════════════════
+const ro=new ResizeObserver(()=>{ drawEdges(); applyTransform(); });
+ro.observe(viewport);
+
+// ════════════════════════════════════════════════════════════
+//  AUTO-SAVE (LOCALSTORAGE)
+// ════════════════════════════════════════════════════════════
+function saveLayout() {
+  const layoutData = {
+    nodes: {},
+    cp: cpOffsets // Salva também as curvas das setas
+  };
+
+  // Captura a posição atual de todos os nós na tela
+  document.querySelectorAll('.node').forEach(node => {
+    layoutData.nodes[node.id] = {
+      x: parseFloat(node.style.left) || 0,
+      y: parseFloat(node.style.top) || 0
+    };
+  });
+
+  // Grava no navegador com a chave exclusiva desta página
+  localStorage.setItem('bpmn_verificar_peca_layout', JSON.stringify(layoutData));
+}
+
+function loadLayout() {
+  const saved = localStorage.getItem('bpmn_verificar_peca_layout');
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      
+      // Sobrescreve as posições iniciais
+      if (parsed.nodes) {
+        for (const [id, pos] of Object.entries(parsed.nodes)) {
+          if (DEFAULT_POS[id]) {
+            DEFAULT_POS[id].x = pos.x;
+            DEFAULT_POS[id].y = pos.y;
+          }
+        }
+      }
+      
+      // Restaura as modificações feitas nas setas
+      if (parsed.cp) {
+        cpOffsets = parsed.cp;
+      }
+    } catch (e) {
+      console.error("Erro ao ler o layout salvo:", e);
+    }
+  }
+}
+
+// ════════════════════════════════════════════════════════════
+//  BOOT
+// ════════════════════════════════════════════════════════════
+function boot(){
+  layoutPool();
+  loadLayout(); // <-- Atualizado: Carrega o layout antes de renderizar
+  placeNodes();
+  // wait one frame for layout
+  requestAnimationFrame(()=>{
+    drawEdges();
+    fitToScreen();
+    // hide hint
+    setTimeout(()=>{
+      const h=document.getElementById('hint');
+      h.style.opacity='0';
+      setTimeout(()=>h.style.display='none',600);
+    },4000);
+  });
+}
+window.addEventListener('load', boot);
+</script>
+</body>
+</html>
